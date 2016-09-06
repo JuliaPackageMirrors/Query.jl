@@ -16,6 +16,8 @@ end
 
 function Data.reset!(io::DataStreamSource)
     io.iterate_state = start(io.data)
+    io.current_row = 0
+    io.schema.rows=-1
 end
 
 function Data.isdone{TSource,TE}(source::DataStreamSource{TSource,TE}, row, col)
@@ -38,15 +40,33 @@ end
 Data.streamtype{T<:DataStreamSource}(::Type{T}, ::Type{Data.Field}) = true
 
 function Data.getfield{T}(source::DataStreamSource, ::Type{T}, row, col)
+    if row<source.current_row
+        error()
+    elseif row==source.current_row+1
+        (source.current_val, source.iterate_state) = next(source.data, source.iterate_state)
+        source.current_row = source.current_row+1
+    elseif row>source.current_row
+        error()
+    end
+
     return source.current_val[col]::T
 end
 
 function Data.getfield{T}(source::DataStreamSource, ::Type{Nullable{T}}, row, col)
+    if row<source.current_row
+        error()
+    elseif row==source.current_row+1
+        (source.current_val, source.iterate_state) = next(source.data, source.iterate_state)
+        source.current_row = source.current_row+1
+    elseif row>source.current_row
+        error()
+    end
+
     return Nullable{T}(source.current_val[col])
 end
 
 function collect{T<:NamedTuple}(enumerable::Enumerable{T}, ::Type{DataStreamSource})
-    schema = Data.Schema(fieldnames(T),[convert(DataType,i) for i in T.parameters],0)
+    schema = Data.Schema(fieldnames(T),[convert(DataType,i) for i in T.parameters],-1)
     source = DataStreamSource{typeof(enumerable),T}(schema, enumerable)
     Data.reset!(source)
     return source
