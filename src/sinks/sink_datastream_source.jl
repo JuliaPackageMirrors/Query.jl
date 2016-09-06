@@ -65,11 +65,12 @@ function Data.getfield{T}(source::DataStreamSource, ::Type{Nullable{T}}, row, co
     return Nullable{T}(source.current_val[col])
 end
 
-function collect{T<:NamedTuple}(enumerable::Enumerable{T}, ::Type{DataStreamSource})
+function collect{T<:NamedTuple, TSink<:Data.Sink}(enumerable::Enumerable{T}, sink::TSink)
     schema = Data.Schema(fieldnames(T),[convert(DataType,i) for i in T.parameters],-1)
     source = DataStreamSource{typeof(enumerable),T}(schema, enumerable)
     Data.reset!(source)
-    return source
+    Data.stream!(source, sink)
+    return nothing
 end
 
 end
